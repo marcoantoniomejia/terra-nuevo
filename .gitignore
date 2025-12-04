@@ -1,0 +1,29 @@
+# Directorios locales de .terraform
+.terraform/
+
+# Archivos .tfstate
+*.tfstate
+*.tfstate.*
+
+# Archivos de registro de errores
+crash.log
+
+# Excluir todos los archivos .tfvars, que probablemente contengan datos sensibles, como
+# contraseñas, claves privadas y otros secretos. Estos no deben formar parte del control
+# de versiones, ya que son datos sensibles.
+*.tfvars
+
+# Ignorar archivos de anulación, ya que se utilizan para anular recursos localmente y,
+# por lo tanto, no se registran.
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Incluir archivos tfplan para ignorar la salida del plan del comando, los datos
+# sensibles pueden almacenarse en los planes guardados.
+*.tfplan
+
+# Ignorar archivos de configuración de la CLI
+.terraformrc
+terraform.rc
