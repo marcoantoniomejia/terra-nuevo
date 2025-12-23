@@ -11,7 +11,7 @@ crash.log
 # Excluir todos los archivos .tfvars, que probablemente contengan datos sensibles, como
 # contraseñas, claves privadas y otros secretos. Estos no deben formar parte del control
 # de versiones, ya que son datos sensibles.
-*.tfvars
+# ·tfvars
 
 # Ignorar archivos de anulación, ya que se utilizan para anular recursos localmente y,
 # por lo tanto, no se registran.
