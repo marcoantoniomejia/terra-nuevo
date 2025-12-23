@@ -6,7 +6,7 @@ module "network" {
   source               = "../../modules/network"
   host_project_id      = var.host_project_id
   service_project_id   = var.service_project_id
-  subnet_names         = ["subnet-dev01", "psa-googleservices-dev"]
+  subnet_names         = ["subnet-dev01"]
   region               = var.region
   network_name         = "vpc-dev-shared"
 }
@@ -44,13 +44,13 @@ module "compute" {
 }
 
 module "cloud_sql" {
-  source              = "../../modules/cloud-sql"
-  project_id          = var.service_project_id
-  instance_name       = "cloud-sql-instance-dev"
-  database_version    = "POSTGRES_13"
-  tier                = "db-g1-small"
-  zone                = "${var.region}-b"
-  subnet_name         = "psa-googleservices-dev"
-  subnets             = module.network.subnets
-  network_self_link   = module.network.network_self_link
+  source                   = "../../modules/cloud-sql"
+  project_id               = var.service_project_id
+  host_project_id          = var.host_project_id
+  instance_name            = "cloud-sql-instance-dev"
+  database_version         = "POSTGRES_13"
+  tier                     = "db-g1-small"
+  zone                     = "${var.region}-b"
+  network_self_link        = module.network.network_self_link
+  psa_peering_range_name   = "psa-googleservices-dev"
 }
