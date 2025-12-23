@@ -32,3 +32,8 @@ variable "subnets" {
   description = "Un mapa de las subredes."
   type        = any
 }
+
+variable "network_self_link" {
+  description = "El self-link de la red."
+  type        = string
+}

@@ -8,12 +8,17 @@ variable "service_project_id" {
   type        = string
 }
 
-variable "subnets" {
-  description = "Un mapa de subredes para crear."
-  type = map(object({
-    name          = string
-    cidr          = string
-    region        = string
-    private_ip_google_access = optional(bool, true)
-  }))
+variable "subnet_names" {
+  description = "Una lista de nombres de subredes existentes."
+  type        = list(string)
+}
+
+variable "region" {
+  description = "La región donde se encuentran las subredes."
+  type        = string
+}
+
+variable "network_name" {
+  description = "El nombre de la red."
+  type        = string
 }

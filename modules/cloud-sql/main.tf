@@ -8,7 +8,7 @@ resource "google_sql_database_instance" "instance" {
     tier = var.tier
     ip_configuration {
       ipv4_enabled    = false
-      private_network = "projects/${var.subnets[var.subnet_name].project}/global/networks/${split("/", var.subnets[var.subnet_name].network)[4]}"
+      private_network = var.network_self_link
     }
   }
 
@@ -28,11 +28,11 @@ resource "google_compute_global_address" "private_ip_address" {
   purpose       = "VPC_PEERING"
   address_type  = "INTERNAL"
   prefix_length = 16
-  network       = "projects/${var.subnets[var.subnet_name].project}/global/networks/${split("/", var.subnets[var.subnet_name].network)[4]}"
+  network       = var.network_self_link
 }
 
 resource "google_service_networking_connection" "private_vpc_connection" {
-  network                 = "projects/${var.subnets[var.subnet_name].project}/global/networks/${split("/", var.subnets[var.subnet_name].network)[4]}"
+  network                 = var.network_self_link
   service                 = "servicenetworking.googleapis.com"
   reserved_peering_ranges = [google_compute_global_address.private_ip_address.name]
 
