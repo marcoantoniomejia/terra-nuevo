@@ -42,4 +42,4 @@ resource "google_service_networking_connection" "private_vpc_connection" {
   reserved_peering_ranges = [local.peering_range]
 
   depends_on = [google_project_service.private_service_access]
-}
+  }

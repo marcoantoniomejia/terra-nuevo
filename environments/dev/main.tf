@@ -53,4 +53,6 @@ module "cloud_sql" {
   zone                     = "${var.region}-b"
   network_self_link        = module.network.network_self_link
   psa_peering_range_name   = "psa-googleservices-dev"
+  subnets                  = module.network.subnets
+  subnet_name              = "subnet-dev01"
 }

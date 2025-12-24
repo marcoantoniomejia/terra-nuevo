@@ -23,16 +23,6 @@ variable "zone" {
   type        = string
 }
 
-variable "subnet_name" {
-  description = "El nombre de la subred a la que se adjuntará la instancia."
-  type        = string
-}
-
-variable "subnets" {
-  description = "Un mapa de las subredes."
-  type        = any
-}
-
 variable "network_self_link" {
   description = "El self-link de la red."
   type        = string
