@@ -1,6 +1,6 @@
 terraform {
   backend "gcs" {
-    bucket  = "your-gcs-bucket-name-dev"
+    bucket  = "bucket-terraform-state-siesaprueba"
     prefix  = "dev"
   }
 }
