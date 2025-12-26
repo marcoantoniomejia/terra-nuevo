@@ -21,7 +21,7 @@ module "compute" {
       machine_type = "e2-medium"
       zone         = "${var.region}-b"
       subnet_name  = "subnet-dev01"
-      tags         = ["ambiente=dev"]
+      tags         = ["ambiente-dev"]
       external_ip  = true
     },
     "vm-dev-2" = {
@@ -29,7 +29,7 @@ module "compute" {
       machine_type = "e2-medium"
       zone         = "${var.region}-b"
       subnet_name  = "subnet-dev01"
-      tags         = ["ambiente=dev"]
+      tags         = ["ambiente-dev"]
       external_ip  = true
     },
     "vm-dev-3" = {
@@ -37,7 +37,7 @@ module "compute" {
       machine_type = "e2-medium"
       zone         = "${var.region}-b"
       subnet_name  = "subnet-dev01"
-      tags         = ["ambiente=dev"]
+      tags         = ["ambiente-dev"]
       external_ip  = true
     }
   }
@@ -53,6 +53,4 @@ module "cloud_sql" {
   zone                     = "${var.region}-b"
   network_self_link        = module.network.network_self_link
   psa_peering_range_name   = "psa-googleservices-dev"
-  subnets                  = module.network.subnets
-  subnet_name              = "subnet-dev01"
 }
