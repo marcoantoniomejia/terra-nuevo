@@ -38,3 +38,9 @@ variable "host_project_id" {
   description = "El ID del proyecto anfitrión donde se encuentra la VPC compartida."
   type        = string
 }
+
+variable "create_service_networking_connection" {
+  description = "A boolean flag to control the creation of the service networking connection. Set to false if the connection already exists."
+  type        = bool
+  default     = true
+}

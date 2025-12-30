@@ -22,3 +22,9 @@ variable "network_name" {
   description = "El nombre de la red."
   type        = string
 }
+
+variable "create_service_project_attachment" {
+  description = "A boolean flag to control the creation of the service project attachment. Set to false if the attachment already exists."
+  type        = bool
+  default     = true
+}

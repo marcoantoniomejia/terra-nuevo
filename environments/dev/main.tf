@@ -3,54 +3,31 @@ provider "google" {
 }
 
 module "network" {
-  source               = "../../modules/network"
-  host_project_id      = var.host_project_id
-  service_project_id   = var.service_project_id
-  subnet_names         = ["subnet-dev01"]
-  region               = var.region
-  network_name         = "vpc-dev-shared"
+  source                          = "../../modules/network"
+  host_project_id                 = var.host_project_id
+  service_project_id              = var.service_project_id
+  subnet_names                    = var.subnet_names
+  region                          = var.region
+  network_name                    = var.network_name
+  create_service_project_attachment = var.create_service_project_attachment
 }
 
 module "compute" {
   source        = "../../modules/compute"
   project_id    = var.service_project_id
   subnets       = module.network.subnets
-  instances = {
-    "vm-dev-1" = {
-      name         = "vm-dev-1"
-      machine_type = "e2-medium"
-      zone         = "${var.region}-b"
-      subnet_name  = "subnet-dev01"
-      tags         = ["ambiente-dev"]
-      external_ip  = true
-    },
-    "vm-dev-2" = {
-      name         = "vm-dev-2"
-      machine_type = "e2-medium"
-      zone         = "${var.region}-b"
-      subnet_name  = "subnet-dev01"
-      tags         = ["ambiente-dev"]
-      external_ip  = true
-    },
-    "vm-dev-3" = {
-      name         = "vm-dev-3"
-      machine_type = "e2-medium"
-      zone         = "${var.region}-b"
-      subnet_name  = "subnet-dev01"
-      tags         = ["ambiente-dev"]
-      external_ip  = true
-    }
-  }
+  instances     = var.compute_instances
 }
 
 module "cloud_sql" {
-  source                   = "../../modules/cloud-sql"
-  project_id               = var.service_project_id
-  host_project_id          = var.host_project_id
-  instance_name            = "cloud-sql-instance-dev"
-  database_version         = "POSTGRES_13"
-  tier                     = "db-g1-small"
-  zone                     = "${var.region}-b"
-  network_self_link        = module.network.network_self_link
-  psa_peering_range_name   = "psa-googleservices-dev"
+  source                               = "../../modules/cloud-sql"
+  project_id                           = var.service_project_id
+  host_project_id                      = var.host_project_id
+  instance_name                        = var.cloud_sql_instance_name
+  database_version                     = var.cloud_sql_database_version
+  tier                                 = var.cloud_sql_tier
+  zone                                 = var.cloud_sql_zone
+  network_self_link                    = module.network.network_self_link
+  psa_peering_range_name               = var.cloud_sql_psa_peering_range_name
+  create_service_networking_connection = var.create_service_networking_connection
 }
