@@ -6,6 +6,7 @@ data "google_compute_subnetwork" "subnets" {
 }
 
 resource "google_compute_shared_vpc_service_project" "service_project_attachment" {
+  count           = var.create_service_project_attachment ? 1 : 0
   host_project    = var.host_project_id
   service_project = var.service_project_id
   depends_on = [data.google_compute_subnetwork.subnets]

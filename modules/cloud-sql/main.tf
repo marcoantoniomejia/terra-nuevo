@@ -37,6 +37,7 @@ resource "google_compute_global_address" "private_ip_address" {
 }
 
 resource "google_service_networking_connection" "private_vpc_connection" {
+  count                   = var.create_service_networking_connection ? 1 : 0
   network                 = var.network_self_link
   service                 = "servicenetworking.googleapis.com"
   reserved_peering_ranges = [local.peering_range]
