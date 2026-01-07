@@ -1,0 +1,145 @@
+name: Terraform Plan
+
+on:
+    pull_request:
+        branches:
+            - main
+        paths:
+            - "environments/**/*.tf"
+            - "environments/**/*.tfvars"
+            - "modules/**/*.tf"
+
+permissions:
+    contents: read
+    pull-requests: write
+    id-token: write
+
+jobs:
+    detect-changes:
+        name: Detect Changed Environments
+        runs-on: ubuntu-latest
+        outputs:
+            environments: ${{ steps.detect.outputs.environments }}
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+
+            - name: Detect changed environments
+              id: detect
+              run: |
+                  # Get changed files
+                  CHANGED_FILES=$(git diff --name-only origin/main...HEAD)
+
+                  # Detect which environments were modified
+                  ENVS=()
+                  if echo "$CHANGED_FILES" | grep -q "environments/dev/"; then
+                    ENVS+=("dev")
+                  fi
+                  if echo "$CHANGED_FILES" | grep -q "environments/qa/"; then
+                    ENVS+=("qa")
+                  fi
+                  if echo "$CHANGED_FILES" | grep -q "environments/prd/"; then
+                    ENVS+=("prd")
+                  fi
+
+                  # If modules changed, plan all environments
+                  if echo "$CHANGED_FILES" | grep -q "modules/"; then
+                    ENVS=("dev" "qa" "prd")
+                  fi
+
+                  # Convert to JSON array
+                  ENVS_JSON=$(printf '%s\n' "${ENVS[@]}" | jq -R . | jq -s -c .)
+                  echo "environments=$ENVS_JSON" >> $GITHUB_OUTPUT
+
+                  echo "Detected environments to plan: ${ENVS[@]}"
+
+    plan:
+        name: Plan - ${{ matrix.environment }}
+        runs-on: ubuntu-latest
+        needs: detect-changes
+        if: needs.detect-changes.outputs.environments != '[]'
+
+        strategy:
+            matrix:
+                environment: ${{ fromJson(needs.detect-changes.outputs.environments) }}
+            fail-fast: false
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Setup Terraform
+              uses: hashicorp/setup-terraform@v3
+              with:
+                  terraform_version: 1.6.6
+
+            - name: Authenticate to Google Cloud
+              uses: google-github-actions/auth@v2
+              with:
+                  workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+                  service_account: ${{ secrets[format('GCP_SERVICE_ACCOUNT_EMAIL_{0}', upper(matrix.environment))] }}
+
+            - name: Setup Google Cloud SDK
+              uses: google-github-actions/setup-gcloud@v2
+
+            - name: Terraform Init
+              run: |
+                  cd environments/${{ matrix.environment }}
+                  terraform init
+
+            - name: Terraform Plan
+              id: plan
+              run: |
+                  cd environments/${{ matrix.environment }}
+                  terraform plan -no-color -out=tfplan
+                  terraform show -no-color tfplan > plan.txt
+              continue-on-error: true
+
+            - name: Upload Plan Artifact
+              uses: actions/upload-artifact@v4
+              with:
+                  name: tfplan-${{ matrix.environment }}
+                  path: environments/${{ matrix.environment }}/tfplan
+                  retention-days: 5
+
+            - name: Comment Plan on PR
+              uses: actions/github-script@v7
+              with:
+                  script: |
+                      const fs = require('fs');
+                      const planPath = 'environments/${{ matrix.environment }}/plan.txt';
+                      const plan = fs.readFileSync(planPath, 'utf8');
+
+                      // Truncate plan if too long
+                      const maxLength = 65000;
+                      const truncatedPlan = plan.length > maxLength 
+                        ? plan.substring(0, maxLength) + '\n\n... (truncated)'
+                        : plan;
+
+                      const output = `### Terraform Plan - \`${{ matrix.environment }}\` 🌍
+
+                      <details>
+                      <summary>Show Plan</summary>
+
+                      \`\`\`terraform
+                      ${truncatedPlan}
+                      \`\`\`
+
+                      </details>
+
+                      **Plan Status**: ${{ steps.plan.outcome == 'success' && '✅ Success' || '❌ Failed' }}
+                      `;
+
+                      github.rest.issues.createComment({
+                        issue_number: context.issue.number,
+                        owner: context.repo.owner,
+                        repo: context.repo.repo,
+                        body: output
+                      });
+
+            - name: Plan Status Check
+              if: steps.plan.outcome == 'failure'
+              run: exit 1

@@ -1,4 +1,6 @@
 terraform {
+  required_version = ">= 1.6.0"
+  
   required_providers {
     google = {
       source  = "hashicorp/google"
@@ -18,8 +20,32 @@ resource "google_storage_bucket" "backend" {
 
   uniform_bucket_level_access = true
 
+  labels = {
+    purpose     = "terraform-state"
+    managed_by  = "terraform"
+    environment = var.environment
+  }
+
   versioning {
     enabled = true
+  }
+
+  lifecycle_rule {
+    condition {
+      num_newer_versions = 10
+    }
+    action {
+      type = "Delete"
+    }
+  }
+
+  lifecycle_rule {
+    condition {
+      days_since_noncurrent_time = 30
+    }
+    action {
+      type = "Delete"
+    }
   }
 
   lifecycle {

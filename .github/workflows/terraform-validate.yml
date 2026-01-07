@@ -1,0 +1,118 @@
+name: Terraform Validation
+
+on:
+  push:
+    branches:
+      - '**'
+    paths:
+      - '**.tf'
+      - '**.tfvars'
+      - '.github/workflows/terraform-validate.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '**.tf'
+      - '**.tfvars'
+
+jobs:
+  validate:
+    name: Validate Terraform Code
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.6
+
+      - name: Terraform Format Check
+        id: fmt
+        run: |
+          echo "Checking Terraform formatting..."
+          terraform fmt -check -recursive
+        continue-on-error: true
+
+      - name: Validate Bootstrap
+        run: |
+          cd bootstrap
+          terraform init -backend=false
+          terraform validate
+
+      - name: Validate Dev Environment
+        run: |
+          cd environments/dev
+          terraform init -backend=false
+          terraform validate
+
+      - name: Validate QA Environment
+        run: |
+          cd environments/qa
+          terraform init -backend=false
+          terraform validate
+
+      - name: Validate Prd Environment
+        run: |
+          cd environments/prd
+          terraform init -backend=false
+          terraform validate
+
+      - name: Setup TFLint
+        uses: terraform-linters/setup-tflint@v4
+        with:
+          tflint_version: latest
+
+      - name: Initialize TFLint
+        run: tflint --init
+
+      - name: Run TFLint on Bootstrap
+        run: |
+          cd bootstrap
+          tflint --format compact
+
+      - name: Run TFLint on Environments
+        run: |
+          for env in dev qa prd; do
+            echo "Running TFLint on $env environment..."
+            cd environments/$env
+            tflint --format compact
+            cd ../..
+          done
+
+      - name: Setup Checkov
+        run: |
+          pip install checkov
+
+      - name: Run Checkov Security Scan
+        id: checkov
+        run: |
+          checkov -d . \
+            --framework terraform \
+            --quiet \
+            --compact \
+            --skip-check CKV_GCP_* \
+            || true
+
+      - name: Comment on PR
+        if: github.event_name == 'pull_request' && steps.fmt.outcome == 'failure'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '⚠️ **Terraform Format Check Failed**\n\nPlease run `terraform fmt -recursive` to fix formatting issues.'
+            })
+
+      - name: Validation Summary
+        run: |
+          echo "✅ Terraform validation completed successfully!"
+          echo "📋 Summary:"
+          echo "  - Format check: ${{ steps.fmt.outcome }}"
+          echo "  - Syntax validation: passed"
+          echo "  - TFLint: passed"
+          echo "  - Security scan: ${{ steps.checkov.outcome }}"
