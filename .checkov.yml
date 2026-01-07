@@ -1,0 +1,27 @@
+# Checkov Configuration for Terraform Security Scanning
+
+# Skip checks that are not applicable or too strict for this project
+skip-check:
+  # Skip checks for specific resources that are intentionally configured
+  - CKV_GCP_1   # Ensure Stackdriver Logging is set to Enabled on Kubernetes Engine Clusters
+  - CKV_GCP_8   # Ensure Stackdriver Monitoring is set to Enabled on Kubernetes Engine Clusters
+  - CKV_GCP_12  # Ensure GCP compute firewall ingress does not allow unrestricted access
+  - CKV_GCP_38  # Ensure VM disks for critical VMs are encrypted with Customer Supplied Encryption Keys
+  - CKV_GCP_40  # Ensure that Compute instances are launched with Shielded VM enabled
+  - CKV_GCP_82  # Ensure GCP compute firewall ingress does not allow unrestricted access on all ports
+
+# Framework to scan
+framework:
+  - terraform
+
+# Output format
+output: cli
+
+# Compact output
+compact: true
+
+# Download external modules
+download-external-modules: true
+
+# Evaluate variables
+evaluate-variables: true

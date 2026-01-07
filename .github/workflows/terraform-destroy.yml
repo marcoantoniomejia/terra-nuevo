@@ -1,0 +1,95 @@
+name: Terraform Destroy
+
+on:
+    workflow_dispatch:
+        inputs:
+            environment:
+                description: "Environment to destroy (dev, qa, or prd)"
+                required: true
+                type: choice
+                options:
+                    - dev
+                    - qa
+                    - prd
+            confirmation:
+                description: 'Type "destroy" to confirm'
+                required: true
+                type: string
+
+permissions:
+    contents: read
+    id-token: write
+
+jobs:
+    validate-input:
+        name: Validate Destroy Request
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Validate confirmation
+              run: |
+                  if [ "${{ github.event.inputs.confirmation }}" != "destroy" ]; then
+                    echo "❌ Confirmation failed. You must type 'destroy' to proceed."
+                    exit 1
+                  fi
+                  echo "✅ Confirmation validated"
+
+            - name: Warning for Production
+              if: github.event.inputs.environment == 'prd'
+              run: |
+                  echo "⚠️  WARNING: You are about to destroy PRODUCTION infrastructure!"
+                  echo "This action is IRREVERSIBLE and will delete all resources."
+                  sleep 5
+
+    destroy:
+        name: Destroy - ${{ github.event.inputs.environment }}
+        runs-on: ubuntu-latest
+        needs: validate-input
+        environment:
+            name: ${{ github.event.inputs.environment }}-destroy
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Setup Terraform
+              uses: hashicorp/setup-terraform@v3
+              with:
+                  terraform_version: 1.6.6
+
+            - name: Authenticate to Google Cloud
+              uses: google-github-actions/auth@v2
+              with:
+                  workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+                  service_account: ${{ github.event.inputs.environment == 'dev' && secrets.GCP_SERVICE_ACCOUNT_EMAIL_DEV || github.event.inputs.environment == 'qa' && secrets.GCP_SERVICE_ACCOUNT_EMAIL_QA || secrets.GCP_SERVICE_ACCOUNT_EMAIL_PRD }}
+
+            - name: Terraform Init
+              run: |
+                  cd environments/${{ github.event.inputs.environment }}
+                  terraform init
+
+            - name: Terraform Plan Destroy
+              run: |
+                  cd environments/${{ github.event.inputs.environment }}
+                  terraform plan -destroy -out=destroy.tfplan
+
+            - name: Show Destroy Plan
+              run: |
+                  cd environments/${{ github.event.inputs.environment }}
+                  terraform show destroy.tfplan
+
+            - name: Final Confirmation Wait
+              run: |
+                  echo "⏳ Waiting 10 seconds before destroying..."
+                  echo "Cancel now if this was a mistake!"
+                  sleep 10
+
+            - name: Terraform Destroy
+              run: |
+                  cd environments/${{ github.event.inputs.environment }}
+                  terraform apply -auto-approve destroy.tfplan
+
+            - name: Destroy Complete
+              run: |
+                  echo "💥 Infrastructure destroyed for ${{ github.event.inputs.environment }} environment"
+                  echo "All resources have been removed from GCP"

@@ -1,0 +1,185 @@
+name: Terraform Apply
+
+on:
+    push:
+        branches:
+            - main
+        paths:
+            - "environments/**/*.tf"
+            - "environments/**/*.tfvars"
+            - "modules/**/*.tf"
+
+permissions:
+    contents: read
+    id-token: write
+
+jobs:
+    detect-changes:
+        name: Detect Changed Environments
+        runs-on: ubuntu-latest
+        outputs:
+            environments: ${{ steps.detect.outputs.environments }}
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+              with:
+                  fetch-depth: 2
+
+            - name: Detect changed environments
+              id: detect
+              run: |
+                  # Get changed files in last commit
+                  CHANGED_FILES=$(git diff --name-only HEAD^ HEAD)
+
+                  # Detect which environments were modified
+                  ENVS=()
+                  if echo "$CHANGED_FILES" | grep -q "environments/dev/"; then
+                    ENVS+=("dev")
+                  fi
+                  if echo "$CHANGED_FILES" | grep -q "environments/qa/"; then
+                    ENVS+=("qa")
+                  fi
+                  if echo "$CHANGED_FILES" | grep -q "environments/prd/"; then
+                    ENVS+=("prd")
+                  fi
+
+                  # If modules changed, apply to all environments (in order)
+                  if echo "$CHANGED_FILES" | grep -q "modules/"; then
+                    ENVS=("dev" "qa" "prd")
+                  fi
+
+                  # Convert to JSON array
+                  ENVS_JSON=$(printf '%s\n' "${ENVS[@]}" | jq -R . | jq -s -c .)
+                  echo "environments=$ENVS_JSON" >> $GITHUB_OUTPUT
+
+                  echo "Detected environments to apply: ${ENVS[@]}"
+
+    apply-dev:
+        name: Apply - dev
+        runs-on: ubuntu-latest
+        needs: detect-changes
+        if: contains(fromJson(needs.detect-changes.outputs.environments), 'dev')
+        environment: dev
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Setup Terraform
+              uses: hashicorp/setup-terraform@v3
+              with:
+                  terraform_version: 1.6.6
+
+            - name: Authenticate to Google Cloud
+              uses: google-github-actions/auth@v2
+              with:
+                  workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+                  service_account: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL_DEV }}
+
+            - name: Terraform Init
+              run: |
+                  cd environments/dev
+                  terraform init
+
+            - name: Terraform Plan
+              run: |
+                  cd environments/dev
+                  terraform plan -out=tfplan
+
+            - name: Terraform Apply
+              run: |
+                  cd environments/dev
+                  terraform apply -auto-approve tfplan
+
+            - name: Notify Success
+              if: success()
+              run: |
+                  echo "✅ Successfully applied Terraform changes to DEV environment"
+
+    apply-qa:
+        name: Apply - qa
+        runs-on: ubuntu-latest
+        needs: [detect-changes, apply-dev]
+        if: contains(fromJson(needs.detect-changes.outputs.environments), 'qa') && (success() || !contains(fromJson(needs.detect-changes.outputs.environments), 'dev'))
+        environment: qa
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Setup Terraform
+              uses: hashicorp/setup-terraform@v3
+              with:
+                  terraform_version: 1.6.6
+
+            - name: Authenticate to Google Cloud
+              uses: google-github-actions/auth@v2
+              with:
+                  workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+                  service_account: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL_QA }}
+
+            - name: Terraform Init
+              run: |
+                  cd environments/qa
+                  terraform init
+
+            - name: Terraform Plan
+              run: |
+                  cd environments/qa
+                  terraform plan -out=tfplan
+
+            - name: Terraform Apply
+              run: |
+                  cd environments/qa
+                  terraform apply -auto-approve tfplan
+
+            - name: Notify Success
+              if: success()
+              run: |
+                  echo "✅ Successfully applied Terraform changes to QA environment"
+
+    apply-prd:
+        name: Apply - prd
+        runs-on: ubuntu-latest
+        needs: [detect-changes, apply-qa]
+        if: contains(fromJson(needs.detect-changes.outputs.environments), 'prd') && (success() || !contains(fromJson(needs.detect-changes.outputs.environments), 'qa'))
+        environment:
+            name: prd
+            url: https://console.cloud.google.com
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Setup Terraform
+              uses: hashicorp/setup-terraform@v3
+              with:
+                  terraform_version: 1.6.6
+
+            - name: Authenticate to Google Cloud
+              uses: google-github-actions/auth@v2
+              with:
+                  workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+                  service_account: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL_PRD }}
+
+            - name: Terraform Init
+              run: |
+                  cd environments/prd
+                  terraform init
+
+            - name: Terraform Plan
+              run: |
+                  cd environments/prd
+                  terraform plan -out=tfplan
+
+            - name: Terraform Apply
+              run: |
+                  cd environments/prd
+                  terraform apply -auto-approve tfplan
+
+            - name: Notify Success
+              if: success()
+              run: |
+                  echo "✅ Successfully applied Terraform changes to PRD environment"
+                  echo "🎉 Production deployment completed!"
